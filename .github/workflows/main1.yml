@@ -47,10 +47,21 @@ jobs:
 
       - name: Install OBS Studio
         run: |
-          Write-Host "Installing OBS Studio via winget..."
-          # استخدام winget لتثبيت OBS تلقائياً وبشكل صامت للمشغل بالكامل
-          winget install --id OpenBroadcasterSoftware.OBSStudio --silent --accept-source-agreements --accept-package-agreements
-          Write-Host "OBS Studio installation completed!"
+          Write-Host "Downloading OBS Studio Installer..."
+          # رابط تحميل مباشر لأحدث نسخة مستقرة من الموقع الرسمي
+          $obsUrl = "https://obsproject.com"
+          $obsInstaller = "$env:TEMP\OBS-Setup.exe"
+          
+          # تحميل الملف
+          Invoke-WebRequest -Uri $obsUrl -OutFile $obsInstaller
+          
+          Write-Host "Installing OBS Studio silently..."
+          # التثبيت الصامت في الخلفية
+          Start-Process -FilePath $obsInstaller -ArgumentList "/S" -Wait
+          
+          # تنظيف ملف التثبيت بعد الاكتمال
+          Remove-Item $obsInstaller -Force
+          Write-Host "OBS Studio installed successfully!"
 
       - name: Install Tailscale
         run: |
