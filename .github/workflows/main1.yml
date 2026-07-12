@@ -45,34 +45,21 @@ jobs:
               exit 1
           }
 
-      - name: Install OBS Studio
-        run: |
-          Write-Host "Downloading OBS Studio from direct link..."
-          $obsUrl = "https://cdn-fastly.obsproject.com/downloads/OBS-Studio-32.1.2-Windows-x64-Installer.exe"
-          $obsInstaller = "$env:TEMP\OBS-Setup.exe"
-          
-          # استخدام curl لضمان استقرار تحميل الملف بالكامل
-          curl.exe -L -o $obsInstaller $obsUrl
-          
-          Write-Host "Installing OBS Studio silently..."
-          # التثبيت الصامت الفوري
-          Start-Process -FilePath $obsInstaller -ArgumentList "/S" -Wait
-          
-          # تنظيف ملف التثبيت
-          Remove-Item $obsInstaller -Force
-          Write-Host "OBS Studio installed successfully!"
-
       - name: Install Tailscale
         run: |
           $tsUrl = "https://tailscale.com"
           $installerPath = "$env:TEMP\tailscale.msi"
           
           curl.exe -L -o $installerPath $tsUrl
-          Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -Wait
+          # التثبيت الصامت مع إجبار السيرفر على الانتظار حتى يكتمل تماماً
+          Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -NoNewWindow -Wait
           Remove-Item $installerPath -Force
 
       - name: Establish Tailscale Connection
         run: |
+          # الانتظار لثوانٍ بسيطة للتأكد من تسجيل خدمات النظام لـ Tailscale
+          Start-Sleep -Seconds 5
+          
           # Bring up Tailscale with the provided auth key and set a unique hostname
           & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
           
@@ -102,6 +89,23 @@ jobs:
               exit 1
           }
           Write-Host "TCP connectivity successful!"
+
+      - name: Install OBS Studio
+        run: |
+          Write-Host "Downloading OBS Studio from direct link..."
+          $obsUrl = "https://obsproject.com"
+          $obsInstaller = "$env:TEMP\OBS-Setup.exe"
+          
+          # استخدام curl لضمان استقرار تحميل الملف بالكامل
+          curl.exe -L -o $obsInstaller $obsUrl
+          
+          Write-Host "Installing OBS Studio silently..."
+          # التثبيت الصامت الفوري
+          Start-Process -FilePath $obsInstaller -ArgumentList "/S" -NoNewWindow -Wait
+          
+          # تنظيف ملف التثبيت
+          Remove-Item $obsInstaller -Force
+          Write-Host "OBS Studio installed successfully!"
 
       - name: Maintain Connection
         run: |
