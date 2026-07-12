@@ -47,19 +47,18 @@ jobs:
 
       - name: Install OBS Studio
         run: |
-          Write-Host "Downloading OBS Studio Installer..."
-          # رابط تحميل مباشر لأحدث نسخة مستقرة من الموقع الرسمي
-          $obsUrl = "https://obsproject.com"
+          Write-Host "Downloading OBS Studio from direct link..."
+          $obsUrl = "https://cdn-fastly.obsproject.com/downloads/OBS-Studio-32.1.2-Windows-x64-Installer.exe"
           $obsInstaller = "$env:TEMP\OBS-Setup.exe"
           
-          # تحميل الملف
-          Invoke-WebRequest -Uri $obsUrl -OutFile $obsInstaller
+          # استخدام curl لضمان استقرار تحميل الملف بالكامل
+          curl.exe -L -o $obsInstaller $obsUrl
           
           Write-Host "Installing OBS Studio silently..."
-          # التثبيت الصامت في الخلفية
+          # التثبيت الصامت الفوري
           Start-Process -FilePath $obsInstaller -ArgumentList "/S" -Wait
           
-          # تنظيف ملف التثبيت بعد الاكتمال
+          # تنظيف ملف التثبيت
           Remove-Item $obsInstaller -Force
           Write-Host "OBS Studio installed successfully!"
 
@@ -68,7 +67,7 @@ jobs:
           $tsUrl = "https://tailscale.com"
           $installerPath = "$env:TEMP\tailscale.msi"
           
-          Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
+          curl.exe -L -o $installerPath $tsUrl
           Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -Wait
           Remove-Item $installerPath -Force
 
