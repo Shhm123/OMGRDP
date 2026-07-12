@@ -46,7 +46,7 @@ jobs:
 
       - name: Install Tailscale
         run: |
-          $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
+          $tsUrl = "https://tailscale.com"
           $installerPath = "$env:TEMP\tailscale.msi"
           
           Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
@@ -84,6 +84,26 @@ jobs:
               exit 1
           }
           Write-Host "TCP connectivity successful!"
+
+      - name: Install OBS Studio
+        run: |
+          $obsUrl = "https://cdn-fastly.obsproject.com/downloads/OBS-Studio-32.1.2-Windows-x64-Installer.exe"
+          $installer = "$env:TEMP\OBS-Installer.exe"
+
+          Invoke-WebRequest -Uri $obsUrl -OutFile $installer
+
+          Start-Process -FilePath $installer `
+            -ArgumentList "/S" `
+            -Wait
+
+          Remove-Item $installer -Force
+
+          if (Test-Path "$env:ProgramFiles\obs-studio\bin\64bit\obs64.exe") {
+              Write-Host "OBS Studio installed successfully."
+          } else {
+              Write-Error "OBS Studio installation failed."
+              exit 1
+          }
 
       - name: Maintain Connection
         run: |
