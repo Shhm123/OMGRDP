@@ -47,30 +47,38 @@ jobs:
 
       - name: Install Tailscale
         run: |
+          Write-Host "Downloading Tailscale EXE..."
           $tsUrl = "https://tailscale.com"
-          $installerPath = "$env:TEMP\tailscale.msi"
+          $installerPath = "$env:TEMP\tailscale-setup.exe"
           
           curl.exe -L -o $installerPath $tsUrl
-          # التثبيت الصامت الفوري والانتظار التام حتى ينتهي البرنامج من تنصيب ملفاته
-          Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -NoNewWindow -Wait
+          
+          Write-Host "Installing Tailscale System-Wide..."
+          # التثبيت بصيغة EXE يجبر ويندوز على تنزيله للمسار الرئيسي للمسؤولين
+          Start-Process -FilePath $installerPath -ArgumentList "/quiet", "/norestart" -NoNewWindow -Wait
           Remove-Item $installerPath -Force
 
       - name: Establish Tailscale Connection
         run: |
-          # تحديث متغيرات البيئة بمسار البرنامج فوراً لضمان قراءته
-          $env:Path += ";$env:ProgramFiles\Tailscale"
-          
-          # انتظام ثوانٍ للتأكد من استقرار الخدمة في نظام ويندوز
+          # انتظام ثوانٍ للتأكد من تشغيل الخدمة في الخلفية
           Start-Sleep -Seconds 10
           
-          # Bring up Tailscale with the provided auth key and set a unique hostname
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
+          # البحث عن المسار الصحيح للملف وتشغيله دايركت أينما كان
+          $tsExe = Get-Command tailscale.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
+          if (-not $tsExe) {
+              $tsExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
+          }
           
-          # Wait for Tailscale to assign an IP
+          Write-Host "Using Tailscale Path: $tsExe"
+          
+          # تشغيل الخدمة برابط الاتصال الخاص بك
+          & $tsExe up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
+          
+          # الانتظار حتى أخذ الأيبي
           $tsIP = $null
           $retries = 0
           while (-not $tsIP -and $retries -lt 10) {
-              $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+              $tsIP = & $tsExe ip -4
               Start-Sleep -Seconds 5
               $retries++
           }
@@ -85,7 +93,6 @@ jobs:
         run: |
           Write-Host "Tailscale IP: $env:TAILSCALE_IP"
           
-          # Test connectivity using Test-NetConnection against the Tailscale IP on port 3389
           $testResult = Test-NetConnection -ComputerName $env:TAILSCALE_IP -Port 3389
           if (-not $testResult.TcpTestSucceeded) {
               Write-Error "TCP connection to RDP port 3389 failed"
@@ -99,14 +106,10 @@ jobs:
           $obsUrl = "https://obsproject.com"
           $obsInstaller = "$env:TEMP\OBS-Setup.exe"
           
-          # تحميل الملف
           curl.exe -L -o $obsInstaller $obsUrl
           
           Write-Host "Installing OBS Studio silently..."
-          # التثبيت الصامت في الخلفية والانتظار التام للاكتمال
           Start-Process -FilePath $obsInstaller -ArgumentList "/S" -NoNewWindow -Wait
-          
-          # تنظيف ملف التثبيت
           Remove-Item $obsInstaller -Force
           Write-Host "OBS Studio installed successfully!"
 
@@ -118,7 +121,6 @@ jobs:
           Write-Host "Password: $(echo $env:RDP_CREDS)"
           Write-Host "==================`n"
           
-          # Keep runner active indefinitely (or until manually cancelled)
           while ($true) {
               Write-Host "[$(Get-Date)] RDP Active - Use Ctrl+C in workflow to terminate"
               Start-Sleep -Seconds 300
