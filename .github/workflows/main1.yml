@@ -51,14 +51,17 @@ jobs:
           $installerPath = "$env:TEMP\tailscale.msi"
           
           curl.exe -L -o $installerPath $tsUrl
-          # التثبيت الصامت مع إجبار السيرفر على الانتظار حتى يكتمل تماماً
+          # التثبيت الصامت الفوري والانتظار التام حتى ينتهي البرنامج من تنصيب ملفاته
           Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -NoNewWindow -Wait
           Remove-Item $installerPath -Force
 
       - name: Establish Tailscale Connection
         run: |
-          # الانتظار لثوانٍ بسيطة للتأكد من تسجيل خدمات النظام لـ Tailscale
-          Start-Sleep -Seconds 5
+          # تحديث متغيرات البيئة بمسار البرنامج فوراً لضمان قراءته
+          $env:Path += ";$env:ProgramFiles\Tailscale"
+          
+          # انتظام ثوانٍ للتأكد من استقرار الخدمة في نظام ويندوز
+          Start-Sleep -Seconds 10
           
           # Bring up Tailscale with the provided auth key and set a unique hostname
           & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
@@ -96,11 +99,11 @@ jobs:
           $obsUrl = "https://obsproject.com"
           $obsInstaller = "$env:TEMP\OBS-Setup.exe"
           
-          # استخدام curl لضمان استقرار تحميل الملف بالكامل
+          # تحميل الملف
           curl.exe -L -o $obsInstaller $obsUrl
           
           Write-Host "Installing OBS Studio silently..."
-          # التثبيت الصامت الفوري
+          # التثبيت الصامت في الخلفية والانتظار التام للاكتمال
           Start-Process -FilePath $obsInstaller -ArgumentList "/S" -NoNewWindow -Wait
           
           # تنظيف ملف التثبيت
