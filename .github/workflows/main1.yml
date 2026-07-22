@@ -55,23 +55,38 @@ jobs:
 
       - name: Establish Tailscale Connection
         run: |
-          # Bring up Tailscale with the provided auth key and set a unique hostname
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
-          
-          # Wait for Tailscale to assign an IP
+          # تشغيل Tailscale في الخلفية لعدم حجز السجلات وطباعة الرابط فوراً
+          $logFile = "$env:TEMP\tailscale_up.log"
+          Start-Process -FilePath "$env:ProgramFiles\Tailscale\tailscale.exe" `
+            -ArgumentList "up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID" `
+            -RedirectStandardOutput $logFile -RedirectStandardError $logFile
+
+          # انتظار بسيط لتوليد الرابط ثم طباعة محتوى السجل فوراً لتراه بالشاشة
+          Start-Sleep -Seconds 5
+          if (Test-Path $logFile) {
+              Get-Content $logFile
+          }
+
+          # الانتظار حتى يتم تعيين الأي بي من التوثيق
           $tsIP = $null
           $retries = 0
-          while (-not $tsIP -and $retries -lt 10) {
-              $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
-              Start-Sleep -Seconds 5
-              $retries++
+          Write-Host "Waiting for Tailscale login/IP assignment..."
+          while (-not $tsIP -and $retries -lt 24) { # يعطيك دقيقتين كاملة لفتح الرابط والتوثيق
+              $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4 2>$null
+              if (-not $tsIP) {
+                  # إعادة طباعة السجلات في حال ظهر الرابط متأخراً
+                  if (Test-Path $logFile) { Get-Content $logFile | Select-Object -Last 5 }
+                  Start-Sleep -Seconds 5
+                  $retries++
+              }
           }
           
           if (-not $tsIP) {
-              Write-Error "Tailscale IP not assigned. Exiting."
+              Write-Error "Tailscale IP not assigned. Timeout reached."
               exit 1
           }
           echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
+
       
       - name: Verify RDP Accessibility
         run: |
